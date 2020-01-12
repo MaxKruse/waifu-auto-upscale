@@ -31,7 +31,7 @@ static void PrepareFiles(const std::string& root)
 
 				// need height to be 1080 or width to be 1920
 
-				if(image.width() < 1920 || image.height() < 1080)
+				if(image.width() < 1920 && image.height() < 1080)
 				{
 					std::filesystem::copy_file(entry.path().string(), TEMP_DIR + entry.path().filename().string());
 				}
