@@ -53,11 +53,11 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder)
 			bool useHeight = (1080 - image.height()) < (1920 - image.width());
 			if(useHeight)
 			{
-				scale = 1080 / image.height();
+				scale = 1080.0f / static_cast<double>(image.height());
 			}
 			else
 			{
-				scale = 1920 / image.width();
+				scale = 1920.0f / static_cast<double>(image.width());
 			}
 		}
 		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 2 -b 2 -c 64 -s " + std::to_string(scale) + "";
