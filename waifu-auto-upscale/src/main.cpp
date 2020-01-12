@@ -5,7 +5,7 @@
 
 #include <CImg.h>
 #include <tinyfiledialogs/tinyfiledialogs.h>
-
+#include <sstream>
 #define CHECK_F(expected, message) if(!(expected)) { std::cout << (message); exit(1); } 
 
 static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
@@ -49,11 +49,12 @@ static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 					auto image = cimg_library::CImg<unsigned char>(path.c_str()); if (image.width() < 1920 && image.height() < 1080)
 					{
 						temp.emplace_back(entry.path());
+						std::cout << "\r" << temp.size();
 					}
 				}
 				catch (cimg_library::CImgIOException e)
 				{
-					std::cout << "error: " e.what();
+					std::cout << "error: " << e.what();
 				}
 			}
 		}
@@ -75,14 +76,19 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder,
 			bool useHeight = (1080 - image.height()) < (1920 - image.width());
 			if(useHeight)
 			{
-				scale = 1080.0f / static_cast<double>(image.height());
+				scale = 1080.0 / static_cast<double>(image.height());
 			}
 			else
 			{
-				scale = 1920.0f / static_cast<double>(image.width());
+				scale = 1920.0 / static_cast<double>(image.width());
 			}
 		}
-		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 2 -b 2 -c 64 -s " + std::to_string(scale) + "";
+
+		std::ostringstream streamObj;
+		//Add double to stream
+		streamObj << scale;
+
+		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 2 -b 2 -c 64 -s " + streamObj.str(); +"";
 		command += " -i \"" + entry.string() + "\"";
 		command += " -o \"" + folder + "/" + entry.filename().string() + "\"";
 		command += " --model_dir \"" + std::filesystem::path(exe).parent_path().string() + "/models/photo\"";
