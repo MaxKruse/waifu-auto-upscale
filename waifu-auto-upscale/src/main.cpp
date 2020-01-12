@@ -8,10 +8,10 @@
 
 #define CHECK_F(expected, message) if(!(expected)) { std::cout << message; exit(1); } 
 
-const auto TEMP_DIR = std::filesystem::temp_directory_path().string() + "waifu2x-upscaler/"; // temp_directory_path ends with \\
-
-static void PrepareFiles(const std::string& root)
+static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 {
+	std::vector<std::filesystem::path> temp;
+	temp.reserve(500);
 	std::cout << "Preparing files..." << std::endl;
 	std::array<std::string, 3> fileTypes = { ".png", ".jpg", ".jpeg" };
 
@@ -33,22 +33,24 @@ static void PrepareFiles(const std::string& root)
 
 				if(image.width() < 1920 && image.height() < 1080)
 				{
-					std::filesystem::copy_file(entry.path().string(), TEMP_DIR + entry.path().filename().string());
+					temp.emplace_back(entry.path());
 				}
 			}
 		}
 	}
-	std::cout << "Done preparing files." << std::endl;
+	std::cout << "Done preparing files. Found: " << temp.size() << " images to scale." <<  std::endl;
+	return temp;
 }
 
-static void UpscaleIntoFolder(const std::string& exe, const std::string& folder)
+static void UpscaleIntoFolder(const std::string& exe, const std::string& folder, std::vector<std::filesystem::path>& tempFiles)
 {
 	std::filesystem::current_path(std::filesystem::path(exe).parent_path());
-	for(const auto& entry : std::filesystem::directory_iterator(TEMP_DIR))
+	size_t done = 0;
+	for(const auto& entry : tempFiles)
 	{
 		double scale = 0.0f;
 		{
-			std::string path = entry.path().string();
+			std::string path = entry.string();
 			auto image = cimg_library::CImg<unsigned char>(path.c_str());
 			bool useHeight = (1080 - image.height()) < (1920 - image.width());
 			if(useHeight)
@@ -61,18 +63,33 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder)
 			}
 		}
 		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 2 -b 2 -c 64 -s " + std::to_string(scale) + "";
-		command += " -i \"" + entry.path().string() + "\"";
-		command += " -o \"" + folder + "/" + entry.path().filename().string() + "\"";
+		command += " -i \"" + entry.string() + "\"";
+		command += " -o \"" + folder + "/" + entry.filename().string() + "\"";
 		command += " --model_dir \"" + std::filesystem::path(exe).parent_path().string() + "/models/photo\"";
 
-		std::cout << "Scale for \"" + entry.path().filename().string() + "\": " + std::to_string(scale) << std::endl;;
+		std::cout << "Scale for \"" + entry.filename().string() + "\": " + std::to_string(scale) << std::endl;;
 
 		command += " > nul";
 
 		std::cout << "Full command: " << std::endl << command << std::endl;
 
 		system(command.c_str());
-		std::cout << "Upscaled " + entry.path().filename().string() << std::endl;
+		
+		int barWidth = 70;
+		float progress = done / static_cast<float>(tempFiles.size());
+
+		std::cout << "[";
+		int pos = barWidth * progress;
+		for (int i = 0; i < barWidth; ++i) {
+			if (i < pos) std::cout << "=";
+			else if (i == pos) std::cout << ">";
+			else std::cout << " ";
+		}
+		std::cout << "] " << int(progress * 100.0) << " %\r";
+		std::cout.flush();
+
+		done++;
+
 	}
 
 	std::cout << "Finished scaling all images." << std::endl;
@@ -81,14 +98,8 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder)
 
 int main(int argc, char** args)
 {
-	if(std::filesystem::exists(TEMP_DIR))
-	{
-		CHECK_F(std::filesystem::remove_all(TEMP_DIR), "Failed to remove temporary directory");
-	}
 
 	std::cout << "This program will upscale and replace all supported images (png, jpg, jpeg) that are smaller than 1080pixels in height or 1920pixels in width." << std::endl;
-
-	CHECK_F(std::filesystem::create_directory(TEMP_DIR), "Couldn't create temporary directory: ");
 
 	char const* filter[1] = { "*.exe" };
 	const char* temp = nullptr;
@@ -101,9 +112,9 @@ int main(int argc, char** args)
 	CHECK_F(temp != NULL, "Aborted folder selection");
 	std::string folder(temp);
 
-	PrepareFiles(folder);
+	auto files = PrepareFiles(folder);
 
-	UpscaleIntoFolder(exe, folder);
+	UpscaleIntoFolder(exe, folder, files);
 
 	return 0;
 }
