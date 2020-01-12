@@ -9,3 +9,5 @@
 #include <windows.h>
 #include <string>
 #include <array>
+#include <locale>
+#include <codecvt>

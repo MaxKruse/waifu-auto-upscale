@@ -6,7 +6,7 @@
 #include <CImg.h>
 #include <tinyfiledialogs/tinyfiledialogs.h>
 
-#define CHECK_F(expected, message) if(!(expected)) { std::cout << message; exit(1); } 
+#define CHECK_F(expected, message) if(!(expected)) { std::cout << (message); exit(1); } 
 
 static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 {
@@ -15,25 +15,45 @@ static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 	std::cout << "Preparing files..." << std::endl;
 	std::array<std::string, 3> fileTypes = { ".png", ".jpg", ".jpeg" };
 
+	const std::locale locale("");
+	typedef std::codecvt<wchar_t, char, std::mbstate_t> converter_type;
+	const converter_type& converter = std::use_facet<converter_type>(locale);
+
 	for (const auto& entry : std::filesystem::directory_iterator(root))
 	{
 		// Skip Directories
 		if (!is_directory(entry.path()))
 		{
+			auto ws = entry.path().wstring();
+			
+			std::vector<char> to(ws.length() * converter.max_length());
+			std::mbstate_t state;
+			const wchar_t* from_next;
+			char* to_next;
+			const converter_type::result result = converter.out(state, ws.data(), ws.data() + ws.length(), from_next, &to[0], &to[0] + to.size(), to_next);
+			if (result != converter_type::ok && result != converter_type::noconv) {
+				continue;
+			}
+
+
 			// See: https://stackoverflow.com/a/23658737
 			// We find a valid file
 			auto found = std::find(fileTypes.begin(), fileTypes.end(), entry.path().extension());
 			if(found != fileTypes.end())
 			{
 				// Open with CImg to check if we need to upscale it.
-				std::string path = entry.path().string();
-				auto image = cimg_library::CImg<unsigned char>(path.c_str());
-
-				// need height to be 1080 or width to be 1920
-
-				if(image.width() < 1920 && image.height() < 1080)
+				auto path = entry.path().string();
+				try
 				{
-					temp.emplace_back(entry.path());
+					// need height to be 1080 or width to be 1920
+					auto image = cimg_library::CImg<unsigned char>(path.c_str()); if (image.width() < 1920 && image.height() < 1080)
+					{
+						temp.emplace_back(entry.path());
+					}
+				}
+				catch (cimg_library::CImgIOException e)
+				{
+					std::cout << "error: " e.what();
 				}
 			}
 		}
@@ -98,6 +118,7 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder,
 
 int main(int argc, char** args)
 {
+	setlocale(LC_ALL, "");
 
 	std::cout << "This program will upscale and replace all supported images (png, jpg, jpeg) that are smaller than 1080pixels in height or 1920pixels in width." << std::endl;
 
