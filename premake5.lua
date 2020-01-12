@@ -16,7 +16,7 @@ project "waifu-auto-upscale"
 	kind "ConsoleApp"
 	language "C++"
 	cppdialect "C++17"
-	staticruntime "On"
+	staticruntime "Off"
 	characterset "Unicode"
 	vectorextensions "AVX"
 
