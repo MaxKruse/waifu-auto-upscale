@@ -88,7 +88,7 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder,
 		//Add double to stream
 		streamObj << scale;
 
-		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 2 -b 2 -c 64 -s " + streamObj.str(); +"";
+		std::string command = std::filesystem::path(exe).filename().string() + " -t 1 -p cpu -m noise_scale -n 1 -b 2 -c 32 -s " + streamObj.str(); +"";
 		command += " -i \"" + entry.string() + "\"";
 		command += " -o \"" + folder + "/" + entry.filename().string() + "\"";
 		command += " --model_dir \"" + std::filesystem::path(exe).parent_path().string() + "/models/photo\"";
