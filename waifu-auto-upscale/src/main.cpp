@@ -49,7 +49,6 @@ static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 					auto image = cimg_library::CImg<unsigned char>(path.c_str()); if (image.width() < 1920 && image.height() < 1080)
 					{
 						temp.emplace_back(entry.path());
-						std::cout << "\r" << temp.size();
 					}
 				}
 				catch (cimg_library::CImgIOException e)
@@ -92,15 +91,14 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder,
 		command += " -i \"" + entry.string() + "\"";
 		command += " -o \"" + folder + "/" + entry.filename().string() + "\"";
 		command += " --model_dir \"" + std::filesystem::path(exe).parent_path().string() + "/models/photo\"";
-
-		std::cout << "Scale for \"" + entry.filename().string() + "\": " + std::to_string(scale) << std::endl;;
-
 		command += " > nul";
 
-		std::cout << "Full command: " << std::endl << command << std::endl;
+#ifdef _DEBUG
+		std::cout << "Scale for \"" + entry.filename().string() + "\": " + std::to_string(scale) << std::endl;;
 
-		system(command.c_str());
-		
+		std::cout << "Full command: " << std::endl << command << std::endl;
+#endif
+
 		int barWidth = 70;
 		float progress = done / static_cast<float>(tempFiles.size());
 
@@ -114,8 +112,8 @@ static void UpscaleIntoFolder(const std::string& exe, const std::string& folder,
 		std::cout << "] " << int(progress * 100.0) << " %\r";
 		std::cout.flush();
 
+		system(command.c_str());
 		done++;
-
 	}
 
 	std::cout << "Finished scaling all images." << std::endl;
