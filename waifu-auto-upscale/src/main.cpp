@@ -6,9 +6,10 @@
 #include <CImg.h>
 #include <tinyfiledialogs/tinyfiledialogs.h>
 #include <sstream>
+#include <string>
 #define CHECK_F(expected, message) if(!(expected)) { std::cout << (message); exit(1); } 
 
-static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
+static std::vector<std::filesystem::path> PrepareFiles(const std::string& root, int resolution)
 {
 	std::vector<std::filesystem::path> temp;
 	temp.reserve(500);
@@ -46,7 +47,9 @@ static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 				try
 				{
 					// need height to be 1080 or width to be 1920
-					auto image = cimg_library::CImg<unsigned char>(path.c_str()); if (image.width() < 1920 && image.height() < 1080)
+					auto image = cimg_library::CImg<unsigned char>(path.c_str());
+					
+					if (image.width() < (resolution * 16 / 9) && image.height() < resolution)
 					{
 						temp.emplace_back(entry.path());
 					}
@@ -62,24 +65,27 @@ static std::vector<std::filesystem::path> PrepareFiles(const std::string& root)
 	return temp;
 }
 
-static void UpscaleIntoFolder(const std::string& exe, const std::string& folder, std::vector<std::filesystem::path>& tempFiles)
+static void UpscaleIntoFolder(const std::string& exe, const std::string& folder, std::vector<std::filesystem::path>& tempFiles, int resolution)
 {
 	std::filesystem::current_path(std::filesystem::path(exe).parent_path());
 	size_t done = 0;
 	for(const auto& entry : tempFiles)
 	{
-		double scale = 0.0f;
+		double scale = 0.1f;
 		{
 			std::string path = entry.string();
 			auto image = cimg_library::CImg<unsigned char>(path.c_str());
-			bool useHeight = (1080 - image.height()) < (1920 - image.width());
+
+			int targetWidth = resolution * 16 / 9;
+
+			bool useHeight = (resolution - image.height()) < (targetWidth - image.width());
 			if(useHeight)
 			{
-				scale = 1080.0 / static_cast<double>(image.height());
+				scale += static_cast<double>(resolution) / static_cast<double>(image.height());
 			}
 			else
 			{
-				scale = 1920.0 / static_cast<double>(image.width());
+				scale += static_cast<double>(targetWidth) / static_cast<double>(image.width());
 			}
 		}
 
@@ -130,16 +136,24 @@ int main(int argc, char** args)
 	const char* temp = nullptr;
 	
 	temp = tinyfd_openFileDialog("Select waifu2x-caffe-cui.exe", "", 1, filter, NULL, 0);
-	CHECK_F(temp != NULL, "Aborted waifu2x-caffe-cui.exe selection");
+	CHECK_F(temp != NULL, "Aborted waifu2x-caffe-cui.exe selection.");
 	std::string exe(temp);
 
 	temp = tinyfd_selectFolderDialog("Select folder of images to upscale", "");
-	CHECK_F(temp != NULL, "Aborted folder selection");
+	CHECK_F(temp != NULL, "Aborted folder selection.");
 	std::string folder(temp);
 
-	auto files = PrepareFiles(folder);
+	temp = tinyfd_inputBox("Minimum resolution", "What should be the minimum Resolution (eg. 720 for 720p, 1080 for 1080p)", "720");
+	CHECK_F(temp != NULL, "No Resolution given.");
 
-	UpscaleIntoFolder(exe, folder, files);
+	std::string res(temp);
+
+	int resolution = std::stoi(temp);
+	CHECK_F(resolution > 0, "Resolution input under 0 given.");
+
+	auto files = PrepareFiles(folder, resolution);
+
+	UpscaleIntoFolder(exe, folder, files, resolution);
 
 	return 0;
 }
